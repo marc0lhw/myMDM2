@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
@@ -17,7 +19,7 @@
         <!-- 서비스 등록 -->
         <service
             android:name=".BlockingService"
-            android:foregroundServiceType="systemExempted"
+
             android:process=":remote"
             android:permission="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED"
             android:enabled="true"

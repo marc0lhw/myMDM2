@@ -5,11 +5,14 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.app.admin.DevicePolicyManager;
+import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.hardware.usb.UsbManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.wifi.WifiManager;
@@ -17,7 +20,10 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.UserManager;
 import android.util.Log;
+import android.widget.Toast;
+
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
@@ -45,11 +51,51 @@ public class BlockingService extends Service {
     private BroadcastReceiver usbReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            // USB 연결 이벤트 처리
-            boolean usbConnected = intent.getBooleanExtra("connected", false);
-            usbBlocked = isUsbBlocked(context, usbConnected);
-            updateBlockingStatus();
-            Log.d(TAG, "USB connected");
+            String action = intent.getAction();
+            if (action != null) {
+                switch (action) {
+                    case UsbManager.ACTION_USB_DEVICE_ATTACHED:
+                        // 여기에 USB 연결을 차단하는 코드를 추가
+                        usbBlocked = blockUsbConnection(context);
+                        updateBlockingStatus();
+                        Log.d(TAG, "USB Connected");
+                        break;
+//                    case UsbManager.ACTION_USB_DEVICE_DETACHED:
+//                        // USB가 연결이 해제되었을 때의 동작
+//                        Toast.makeText(context, "USB Disconnected", Toast.LENGTH_SHORT).show();
+//                        // 여기에 USB 연결 차단을 해제하는 코드를 추가
+//                        unblockUsbConnection(context);
+//                        break;
+                }
+            }
+        }
+
+        private boolean blockUsbConnection(Context context) {
+            DevicePolicyManager devicePolicyManager = (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
+            ComponentName componentName = new ComponentName(context, MyDeviceAdminReceiver.class);
+
+            if (devicePolicyManager.isAdminActive(componentName)) {
+                // 디바이스 관리자 권한이 활성화된 경우에만 USB 차단 시도
+                devicePolicyManager.addUserRestriction(componentName, UserManager.DISALLOW_USB_FILE_TRANSFER);
+                Toast.makeText(context, "USB Connection Blocked", Toast.LENGTH_SHORT).show();
+                return true;
+            } else {
+                Toast.makeText(context, "Device Admin permission required", Toast.LENGTH_SHORT).show();
+                return false;
+            }
+        }
+
+        private void unblockUsbConnection(Context context) {
+            DevicePolicyManager devicePolicyManager = (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
+            ComponentName componentName = new ComponentName(context, MyDeviceAdminReceiver.class);
+
+            if (devicePolicyManager.isAdminActive(componentName)) {
+                // 디바이스 관리자 권한이 활성화된 경우에만 USB 차단 해제 시도
+                devicePolicyManager.clearUserRestriction(componentName, UserManager.DISALLOW_USB_FILE_TRANSFER);
+                Toast.makeText(context, "USB Connection Unblocked", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(context, "Device Admin permission required", Toast.LENGTH_SHORT).show();
+            }
         }
     };
 
@@ -145,18 +191,6 @@ public class BlockingService extends Service {
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
-    private boolean isUsbBlocked(Context context, boolean usbConnected) {
-        // 실제로 USB 차단 여부를 판단하는 로직 추가
-        // 예제: USB가 연결되었을 때 차단
-        if (usbConnected) {
-            // 여기에서 USB 차단 로직을 추가
-            boolean success = UsbControlHelper.disableUsbDataSignaling(context);
-            return success; // USB 차단 여부 반환
-        } else {
-            return false; // USB 차단되지 않음
-        }
-    }
-
     private boolean isTetheringActive() {
         // 테더링이 활성화되어 있을 때 차단
         ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -195,14 +229,28 @@ public class BlockingService extends Service {
     private boolean isWifiBlocked(boolean wifiConnected) {
         // 실제로 Wifi 차단 여부를 판단하는 로직 추가
         // 예제: Wifi가 연결되었을 때 차단
-
+        WifiManager wifiManager = (WifiManager) this.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        wifiManager.setWifiEnabled(false);
+        wifiBlocked = !wifiManager.isWifiEnabled();
         return wifiBlocked;
     }
 
     private boolean isBluetoothBlocked(boolean bluetoothConnected) {
         // 실제로 블루투스 차단 여부를 판단하는 로직 추가
         // 예제: 블루투스가 연결되었을 때 차단하지 않음
-        return bluetoothConnected;
+        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (bluetoothAdapter != null) {
+            // 블루투스 어댑터가 존재하는 경우
+            if (bluetoothAdapter.isEnabled()) {
+                // 블루투스가 현재 활성화된 경우
+                bluetoothAdapter.disable(); // 블루투스 비활성화
+                return true;
+            }
+        }
+        else {
+            return false;
+        }
+        return false;
     }
 
     private void blockTethering() {
