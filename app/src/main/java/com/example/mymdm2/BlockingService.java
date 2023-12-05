@@ -125,11 +125,18 @@ public class BlockingService extends Service {
         @Override
         public void onReceive(Context context, Intent intent) {
             // 블루투스 이벤트 처리
-            boolean bluetoothConnected = intent.getIntExtra("android.bluetooth.adapter.extra.CONNECTION_STATE", -1)
-                    == 2; // Bluetooth 연결 상태 확인 (2는 연결 상태)
-            bluetoothBlocked = isBluetoothBlocked(bluetoothConnected);
-            updateBlockingStatus();
-            Log.d(TAG, "Bluetooth connected");
+            BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+            if (mBluetoothAdapter == null) {
+                // Device does not support Bluetooth
+            } else if (!mBluetoothAdapter.isEnabled()) {
+                // Bluetooth is not enabled :)
+            } else {
+                // Bluetooth is enabled
+                mBluetoothAdapter.disable();
+                bluetoothBlocked = true;
+                updateBlockingStatus();
+                Log.d(TAG, "Bluetooth connected");
+            }
         }
     };
 
@@ -233,24 +240,6 @@ public class BlockingService extends Service {
         wifiManager.setWifiEnabled(false);
         wifiBlocked = !wifiManager.isWifiEnabled();
         return wifiBlocked;
-    }
-
-    private boolean isBluetoothBlocked(boolean bluetoothConnected) {
-        // 실제로 블루투스 차단 여부를 판단하는 로직 추가
-        // 예제: 블루투스가 연결되었을 때 차단하지 않음
-        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        if (bluetoothAdapter != null) {
-            // 블루투스 어댑터가 존재하는 경우
-            if (bluetoothAdapter.isEnabled()) {
-                // 블루투스가 현재 활성화된 경우
-                bluetoothAdapter.disable(); // 블루투스 비활성화
-                return true;
-            }
-        }
-        else {
-            return false;
-        }
-        return false;
     }
 
     private void blockTethering() {
