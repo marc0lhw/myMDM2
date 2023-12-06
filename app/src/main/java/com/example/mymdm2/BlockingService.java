@@ -58,6 +58,7 @@ public class BlockingService extends Service {
                         // 여기에 USB 연결을 차단하는 코드를 추가
                         usbBlocked = blockUsbConnection(context);
                         updateBlockingStatus();
+                        Toast.makeText(getApplicationContext(), "USB connection disallow", Toast.LENGTH_SHORT).show();
                         Log.d(TAG, "USB Connected");
                         break;
 //                    case UsbManager.ACTION_USB_DEVICE_DETACHED:
@@ -106,6 +107,7 @@ public class BlockingService extends Service {
             boolean tetheringActive = isTetheringActive();
             tetheringBlocked = isTetheringBlocked(tetheringActive);
             updateBlockingStatus();
+            Toast.makeText(getApplicationContext(), "Tethering disallow", Toast.LENGTH_SHORT).show();
             Log.d(TAG, "Tethering detected");
         }
     };
@@ -117,6 +119,7 @@ public class BlockingService extends Service {
             boolean wifiConnected = isWifiConnected(context);
             wifiBlocked = isWifiBlocked(wifiConnected);
             updateBlockingStatus();
+            Toast.makeText(getApplicationContext(), "Wi-Fi disallow", Toast.LENGTH_SHORT).show();
             Log.d(TAG, "Wifi connected");
         }
     };
@@ -135,6 +138,7 @@ public class BlockingService extends Service {
                 mBluetoothAdapter.disable();
                 bluetoothBlocked = true;
                 updateBlockingStatus();
+                Toast.makeText(getApplicationContext(), "Bluetooth disallow", Toast.LENGTH_SHORT).show();
                 Log.d(TAG, "Bluetooth connected");
             }
         }
@@ -153,6 +157,7 @@ public class BlockingService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        Log.d("BlockingService", "Service created");
         handler = new Handler(Looper.getMainLooper());
         ComponentName adminComponent = new ComponentName(this, MyDeviceAdminReceiver.class);
         registerReceivers();
@@ -195,7 +200,7 @@ public class BlockingService extends Service {
         intent.putExtra(EXTRA_TETHERING_BLOCKED, tetheringBlocked);
         intent.putExtra(EXTRA_WIFI_BLOCKED, wifiBlocked);
         intent.putExtra(EXTRA_BLUETOOTH_BLOCKED, bluetoothBlocked);
-        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+        sendBroadcast(intent);
     }
 
     private boolean isTetheringActive() {

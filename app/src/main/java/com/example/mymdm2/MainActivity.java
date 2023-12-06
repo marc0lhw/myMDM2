@@ -7,14 +7,15 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.TextView;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 public class MainActivity extends Activity {
-
+    private static final String TAG = "MainActivity";
     private TextView statusTextView;
-    private BroadcastReceiver blockingStatusReceiver;
+    private BroadcastReceiver mReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -23,35 +24,40 @@ public class MainActivity extends Activity {
 
         statusTextView = findViewById(R.id.statusTextView);
 
-        // 서비스의 상태를 받아와 UI 업데이트
-        updateBlockingStatus();
-
         // 서비스가 실행 중인지 확인하고 실행 중이 아니면 시작
         if (!isServiceRunning(BlockingService.class)) {
             startService(new Intent(this, BlockingService.class));
         }
-
-        // 브로드캐스트 리시버 등록
-        blockingStatusReceiver = new BroadcastReceiver() {
+        mReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                // 브로드캐스트를 통해 차단 상태를 업데이트하고 UI를 갱신
-                updateBlockingStatus();
+                boolean usbBlocked = intent.getBooleanExtra(BlockingService.EXTRA_USB_BLOCKED, false);
+                boolean tetheringBlocked = intent.getBooleanExtra(BlockingService.EXTRA_TETHERING_BLOCKED, false);
+                boolean wifiBlocked = intent.getBooleanExtra(BlockingService.EXTRA_WIFI_BLOCKED, false);
+                boolean bluetoothBlocked = intent.getBooleanExtra(BlockingService.EXTRA_BLUETOOTH_BLOCKED, false);
+
+                Log.d(TAG, "mReceiver get broadcast");
+                updateBlockingStatus(usbBlocked, tetheringBlocked, wifiBlocked, bluetoothBlocked);
             }
         };
-
-        // 로컬 브로드캐스트 리시버 등록
-        LocalBroadcastManager.getInstance(this)
-                .registerReceiver(blockingStatusReceiver, new IntentFilter(BlockingService.ACTION_BLOCKING_STATUS));
     }
 
-    private void updateBlockingStatus() {
-        // 로컬 브로드캐스트로부터 차단 상태를 받아와 UI 업데이트 코드 추가
-        boolean usbBlocked = getIntent().getBooleanExtra(BlockingService.EXTRA_USB_BLOCKED, false);
-        boolean tetheringBlocked = getIntent().getBooleanExtra(BlockingService.EXTRA_TETHERING_BLOCKED, false);
-        boolean wifiBlocked = getIntent().getBooleanExtra(BlockingService.EXTRA_WIFI_BLOCKED, false);
-        boolean bluetoothBlocked = getIntent().getBooleanExtra(BlockingService.EXTRA_BLUETOOTH_BLOCKED, false);
+    @Override
+    protected void onStart() {
+        super.onStart();
+        // 브로드캐스트 리시버 등록
+        registerReceiver(mReceiver, new IntentFilter(BlockingService.ACTION_BLOCKING_STATUS));
+    }
 
+    @Override
+    protected void onStop() {
+        // 브로드캐스트 리시버 등록 해제
+        unregisterReceiver(mReceiver);
+        super.onStop();
+    }
+
+    // 기존의 updateBlockingStatus 메서드에서 매개변수를 받도록 수정
+    private void updateBlockingStatus(boolean usbBlocked, boolean tetheringBlocked, boolean wifiBlocked, boolean bluetoothBlocked) {
         StringBuilder statusBuilder = new StringBuilder("Blocking status: ");
         if (usbBlocked) {
             statusBuilder.append("USB blocked, ");
@@ -68,7 +74,6 @@ public class MainActivity extends Activity {
 
         // 마지막에 쉼표 및 공백 제거
         String statusText = statusBuilder.toString().replaceAll(", $", "");
-
         statusTextView.setText(statusText);
     }
 
@@ -85,12 +90,5 @@ public class MainActivity extends Activity {
 
         // 서비스가 실행 중이 아님
         return false;
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        // 로컬 브로드캐스트 리시버 등록 해제
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(blockingStatusReceiver);
     }
 }
