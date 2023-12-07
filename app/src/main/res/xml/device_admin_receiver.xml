@@ -1,0 +1,7 @@
+<device-admin>
+    <uses-policies>
+        <!-- 외부 앱 설치 차단 기능 -->
+        <limit-password />
+        <disable-install-packages />
+    </uses-policies>
+</device-admin>

@@ -26,7 +26,6 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import java.lang.reflect.Method;
 
 public class BlockingService extends Service {
@@ -47,6 +46,7 @@ public class BlockingService extends Service {
     private boolean tetheringBlocked = false;
     private boolean wifiBlocked = false;
     private boolean bluetoothBlocked = false;
+    private static String POLICY_STATUS = "GREEN";
 
     private BroadcastReceiver usbReceiver = new BroadcastReceiver() {
         @Override
@@ -148,9 +148,19 @@ public class BlockingService extends Service {
         @Override
         public void run() {
             // 2초에 한 번씩 실행되는 서비스 로직
-            Log.d(TAG, "Service is running~^___^");
+            Log.d(TAG, "Service is running~^___^ / POLICY_STATUS is " + POLICY_STATUS);
             updateBlockingStatus();
             handler.postDelayed(this, SERVICE_INTERVAL);
+            switch (POLICY_STATUS) {
+                case "GREEN":
+                    break;
+                case "YELLOW":
+                    break;
+                case "ORANGE":
+                    break;
+                case "RED":
+                    break;
+            }
         }
     };
 
@@ -159,9 +169,10 @@ public class BlockingService extends Service {
         super.onCreate();
         Log.d("BlockingService", "Service created");
         handler = new Handler(Looper.getMainLooper());
-        ComponentName adminComponent = new ComponentName(this, MyDeviceAdminReceiver.class);
         registerReceivers();
         startForegroundService();
+        // 설치 차단 기능 활성화
+        Log.d(TAG, "Service created 2");
         handler.postDelayed(serviceRunnable, SERVICE_INTERVAL);
     }
 
