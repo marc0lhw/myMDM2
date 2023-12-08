@@ -1,5 +1,7 @@
 package com.example.mymdm2;
 
+import static java.lang.Thread.sleep;
+
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.admin.DevicePolicyManager;
@@ -24,16 +26,12 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        statusTextView = findViewById(R.id.statusTextView);
-
-        // 서비스가 실행 중인지 확인하고 실행 중이 아니면 시작
-        if (!isServiceRunning(BlockingService.class)) {
-            startService(new Intent(this, BlockingService.class));
-        }
 
         DeviceAdminUtil.activateDeviceAdmin(this, ACTIVATE_ADMIN_REQUEST_CODE);
-        DeviceAdminUtil.activateDeviceAdmin(this, ACTIVATE_ADMIN_SETTING_REQUEST_CODE);
+//        DeviceAdminUtil.activateDeviceAdmin(this, ACTIVATE_ADMIN_SETTING_REQUEST_CODE);
+
+        setContentView(R.layout.activity_main);
+        statusTextView = findViewById(R.id.statusTextView);
 
         mReceiver = new BroadcastReceiver() {
             @Override
@@ -125,11 +123,32 @@ public class MainActivity extends Activity {
                 // 사용자가 기기 관리자 권한을 수락한 경우
                 // 여기에서 기기 관리자 권한이 활성화되었음을 처리할 수 있습니다.
                 Log.d(TAG, "Device Admin GET~~~~!");
+                if (isDeviceAdminActive(this)) {
+                    Log.d(TAG, "onActivityResult1");
+                    try
+                    {
+                        sleep(20000);
+                    } catch (InterruptedException e)
+                    {
+                        e.printStackTrace();
+                    }
+                    // 외부 설치 앱 차단
+                    DeviceAdminUtil.setInstallBlockPolicy(this, true);
+                    // 스마트폰 잠금 기능 의무화
+                    DeviceAdminUtil.enforcePasswordPolicy(this);
 
-                DeviceAdminUtil.setInstallBlockPolicy(this,true);
+                    // 서비스가 실행 중인지 확인하고 실행 중이 아니면 시작
+                    if (!isServiceRunning(BlockingService.class)) {
+                        Log.d(TAG, "onActivityResult2");
 
-                // 예를 들어, 기기 관리자 권한이 활성화된 후 다른 작업 수행
-                // activateDeviceAdmin 이후에 할 작업을 여기에 추가하세요.
+                        startService(new Intent(this, BlockingService.class));
+                        Log.d(TAG, "onActivityResult3");
+
+                    }
+
+                    // 예를 들어, 기기 관리자 권한이 활성화된 후 다른 작업 수행
+                    // activateDeviceAdmin 이후에 할 작업을 여기에 추가하세요.
+                }
             } else {
                 // 사용자가 기기 관리자 권한을 거부한 경우 또는 취소한 경우
                 // 여기에서 적절한 처리를 수행할 수 있습니다.

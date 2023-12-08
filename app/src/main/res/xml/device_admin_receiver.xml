@@ -6,6 +6,5 @@
         <force-lock />
         <encrypted-storage />
         <wipe-data />
-        <disable-install-packages />
     </uses-policies>
 </device-admin>

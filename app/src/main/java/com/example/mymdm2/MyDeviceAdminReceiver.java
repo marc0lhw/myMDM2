@@ -16,24 +16,6 @@ public class MyDeviceAdminReceiver extends DeviceAdminReceiver {
     public void onEnabled(Context context, Intent intent) {
         super.onEnabled(context, intent);
 
-        // 프로필 관리자 설정
-        try {
-            DevicePolicyManager devicePolicyManager = (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
-            ComponentName componentName = new ComponentName(context, MyDeviceAdminReceiver.class);
-
-            // 프로필 관리자가 아닌 경우, 프로필 관리자로 설정
-            if (!devicePolicyManager.isProfileOwnerApp(context.getPackageName())) {
-                Intent profileOwnerIntent = new Intent(DevicePolicyManager.ACTION_PROFILE_OWNER_CHANGED);
-                profileOwnerIntent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, componentName);
-                context.sendBroadcast(profileOwnerIntent);
-                Log.d(TAG, "Profile owner set");
-            } else {
-                Log.d(TAG, "Already profile owner");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
         showToast(context, "Device admin enabled");
         Log.d(TAG, "ADMIN onEnabled");
     }

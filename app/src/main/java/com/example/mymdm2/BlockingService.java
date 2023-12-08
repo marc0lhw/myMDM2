@@ -53,58 +53,6 @@ public class BlockingService extends Service {
     private static String POLICY_STATUS = "GREEN";
     private boolean IS_DEBUGGING = true;
 
-    private BroadcastReceiver usbReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (action != null) {
-                switch (action) {
-                    case UsbManager.ACTION_USB_DEVICE_ATTACHED:
-                        // 여기에 USB 연결을 차단하는 코드를 추가
-                        usbBlocked = blockUsbConnection(context);
-                        updateBlockingStatus();
-                        Toast.makeText(getApplicationContext(), "USB connection disallow", Toast.LENGTH_SHORT).show();
-                        Log.d(TAG, "USB Connected");
-                        break;
-//                    case UsbManager.ACTION_USB_DEVICE_DETACHED:
-//                        // USB가 연결이 해제되었을 때의 동작
-//                        Toast.makeText(context, "USB Disconnected", Toast.LENGTH_SHORT).show();
-//                        // 여기에 USB 연결 차단을 해제하는 코드를 추가
-//                        unblockUsbConnection(context);
-//                        break;
-                }
-            }
-        }
-
-        private boolean blockUsbConnection(Context context) {
-            DevicePolicyManager devicePolicyManager = (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
-            ComponentName componentName = new ComponentName(context, MyDeviceAdminReceiver.class);
-
-            if (devicePolicyManager.isAdminActive(componentName)) {
-                // 디바이스 관리자 권한이 활성화된 경우에만 USB 차단 시도
-                devicePolicyManager.addUserRestriction(componentName, UserManager.DISALLOW_USB_FILE_TRANSFER);
-                Toast.makeText(context, "USB Connection Blocked", Toast.LENGTH_SHORT).show();
-                return true;
-            } else {
-                Toast.makeText(context, "Device Admin permission required", Toast.LENGTH_SHORT).show();
-                return false;
-            }
-        }
-
-        private void unblockUsbConnection(Context context) {
-            DevicePolicyManager devicePolicyManager = (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
-            ComponentName componentName = new ComponentName(context, MyDeviceAdminReceiver.class);
-
-            if (devicePolicyManager.isAdminActive(componentName)) {
-                // 디바이스 관리자 권한이 활성화된 경우에만 USB 차단 해제 시도
-                devicePolicyManager.clearUserRestriction(componentName, UserManager.DISALLOW_USB_FILE_TRANSFER);
-                Toast.makeText(context, "USB Connection Unblocked", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(context, "Device Admin permission required", Toast.LENGTH_SHORT).show();
-            }
-        }
-    };
-
     private BroadcastReceiver tetheringReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -128,94 +76,8 @@ public class BlockingService extends Service {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-
-
-
-
-//            // 테더링 이벤트 처리
-//            ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-//            Log.e(TAG, "Tethering blocked1");
-//            try {
-//                // Get the stopTethering method
-//                Method stopTethering = ConnectivityManager.class.getDeclaredMethod("stopTethering", int.class);
-//                stopTethering.setAccessible(true);
-//                Log.e(TAG, "Tethering blocked2");
-//
-//                // Use the constant for TYPE_MOBILE_HIPRI
-//                int typeMobileHipri = ConnectivityManager.class.getField("TYPE_MOBILE_HIPRI").getInt(null);
-//                Log.e(TAG, "Tethering blocked3");
-//
-//                // Invoke the stopTethering method
-//                stopTethering.invoke(cm, typeMobileHipri);
-//                Log.e(TAG, "Tethering blocked4");
-//                tetheringBlocked = true;
-//                Toast.makeText(getApplicationContext(), "Tethering 기능 차단", Toast.LENGTH_SHORT).show();
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//            }
-
-
-//            WifiManager wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
-//            Log.e(TAG, "Tethering detected1");
-//            // Wi-Fi 핫스팟이 활성화된 경우
-//            if (isWifiHotspotEnabled(wifiManager)) {
-//                // Wi-Fi 핫스팟 비활성화
-//                Log.e(TAG, "Tethering detected3");
-//                setWifiHotspotEnabled(context, false);
-//                tetheringBlocked = true;
-//                Toast.makeText(getApplicationContext(), "Tethering 기능 차단", Toast.LENGTH_SHORT).show();
-//                Log.e(TAG, "Tethering blocked");
-//            }
         }
     };
-
-
-    private static boolean isWifiHotspotEnabled(WifiManager wifiManager) {
-        try {
-            // Check if Wi-Fi hotspot is enabled
-            int wifiApState = (int) invokeMethod(wifiManager, "getWifiApState", null, false);
-            Log.e(TAG, "Tethering detected2");
-
-            // Android 9에서는 WIFI_AP_STATE_ENABLED 대신에 13을 사용
-            return wifiApState == 13;
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return false;
-    }
-
-    private static void setWifiHotspotEnabled(Context context, boolean enabled) {
-        try {
-            WifiManager wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
-            Log.e(TAG, "Tethering detected4");
-
-            // Enable or disable Wi-Fi hotspot
-            invokeMethod(wifiManager, "setWifiApEnabled", null, enabled);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private static Object invokeMethod(WifiManager wifiManager, String methodName, WifiConfiguration wifiConfig, boolean enabled) {
-        try {
-            // Use reflection to invoke Wi-Fi hotspot-related methods
-            Class<?> wifiManagerClass = wifiManager.getClass();
-            Method method;
-
-            if (wifiConfig != null) {
-                // For setWifiApEnabled method
-                method = wifiManagerClass.getDeclaredMethod(methodName, WifiConfiguration.class, boolean.class);
-                return method.invoke(wifiManager, wifiConfig, enabled);
-            } else {
-                // For getWifiApState method
-                method = wifiManagerClass.getDeclaredMethod(methodName);
-                return method.invoke(wifiManager);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
 
     private BroadcastReceiver wifiReceiver = new BroadcastReceiver() {
         @Override
@@ -307,8 +169,8 @@ public class BlockingService extends Service {
 
     private void registerReceivers() {
         // 필요한 브로드캐스트 리시버 등록
-        registerReceiver(usbReceiver, new IntentFilter("android.hardware.usb.action.USB_STATE"));
-        registerReceiver(tetheringReceiver, new IntentFilter("android.net.conn.TETHER_STATE_CHANGED"));
+//        registerReceiver(usbReceiver, new IntentFilter("android.hardware.usb.action.USB_STATE"));
+//        registerReceiver(tetheringReceiver, new IntentFilter("android.net.conn.TETHER_STATE_CHANGED"));
         registerReceiver(wifiReceiver, new IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION));
         registerReceiver(bluetoothReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
     }
@@ -423,8 +285,8 @@ public class BlockingService extends Service {
     public void onDestroy() {
         super.onDestroy();
         // 리시버 등록 해제 및 서비스 종료 로직 추가
-        unregisterReceiver(usbReceiver);
-        unregisterReceiver(tetheringReceiver);
+//        unregisterReceiver(usbReceiver);
+//        unregisterReceiver(tetheringReceiver);
         unregisterReceiver(wifiReceiver);
         unregisterReceiver(bluetoothReceiver);
         handler.removeCallbacks(serviceRunnable);
