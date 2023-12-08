@@ -1,7 +1,5 @@
 package com.example.mymdm2;
 
-import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
-import static androidx.core.app.ActivityCompat.startActivityForResult;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -9,22 +7,20 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.net.Uri;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.UserManager;
 import android.provider.Settings;
 import android.util.Log;
-import android.widget.Toast;
+import androidx.biometric.BiometricManager;
 
 
 public class DeviceAdminUtil {
     private static final int ACTIVATE_ADMIN_REQUEST_CODE = 12345; // 원하는 값을 사용하세요
     private static final int ACTIVATE_ADMIN_SETTING_REQUEST_CODE = 6789; // 원하는 값을 사용하세요
     private static final String TAG = "DeviceAdminUtil";
-    private static final long CHECK_INTERVAL = 5000; // 5초 간격으로 체크
-    private static final long LOCK_DELAY = 20000; // 20초 후 잠금
+    private static final long CHECK_INTERVAL = 15000; // 15초 간격으로 체크
+    private static final long LOCK_DELAY = 30000; // 30초 후 잠금
 
     // 장치 관리자 권한을 활성화하기 위한 메서드
     public static void activateDeviceAdmin(Activity activity, int requestCode) {
@@ -85,6 +81,7 @@ public class DeviceAdminUtil {
                 showAlertAndStartLockTimer(activity, devicePolicyManager, componentName);
             } else {
                 Log.d(TAG, "Current password is already sufficient");
+                enforceBiometricPolicy(activity, devicePolicyManager);
             }
         }
     }
@@ -107,6 +104,7 @@ public class DeviceAdminUtil {
                 if (devicePolicyManager.isActivePasswordSufficient()) {
                     Log.d(TAG, "비밀번호 정책 충족됨, 잠금 타이머 중단");
                     handler.removeCallbacks(this);
+                    enforceBiometricPolicy(activity, devicePolicyManager);
                 } else {
                     Log.d(TAG, "비밀번호 정책 여전히 미충족, 계속 체크");
                     handler.postDelayed(this, LOCK_DELAY);
@@ -125,6 +123,81 @@ public class DeviceAdminUtil {
         handler.postDelayed(checkPolicyRunnable, CHECK_INTERVAL);
         handler.postDelayed(() -> {
             if (!devicePolicyManager.isActivePasswordSufficient()) {
+                devicePolicyManager.lockNow();
+            }
+        }, LOCK_DELAY);
+    }
+
+    public static boolean isBiometricAvailable(Context context) {
+        BiometricManager biometricManager = BiometricManager.from(context);
+
+        switch (biometricManager.canAuthenticate()) {
+            case BiometricManager.BIOMETRIC_SUCCESS:
+                Log.d(TAG, "App can authenticate using biometrics.");
+                return true;
+            case BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE:
+                Log.d(TAG, "No biometric features available on this device.");
+                return false;
+            case BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE:
+                Log.d(TAG, "Biometric features are currently unavailable.");
+                return false;
+            case BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED:
+                Log.d(TAG, "Biometric features are available but no biometrics are enrolled.");
+                return false;
+            default:
+                return false;
+        }
+    }
+
+    public static void enforceBiometricPolicy(final Activity activity, final DevicePolicyManager devicePolicyManager) {
+
+        if (isBiometricAvailable(activity)) {
+            // 생체 인식이 활성화되어 있을 때 설정 화면으로 유도
+            showBiometricDisableDialog(activity, devicePolicyManager);
+        }
+        else {
+            Log.d(TAG, "BiometricPolicy is already sufficient");
+        }
+    }
+    private static void showBiometricDisableDialog(final Activity activity, final DevicePolicyManager devicePolicyManager) {
+        new AlertDialog.Builder(activity)
+                .setTitle("보안 경고")
+                .setMessage("생체 인식 비활성화 필요 - '지문'으로 이동한 후, 등록된 지문을 삭제해 주세요.")
+                .setPositiveButton("지금 설정", (dialog, which) -> {
+                    Intent intent = new Intent(Settings.ACTION_SECURITY_SETTINGS);
+                    activity.startActivity(intent);
+                })
+                .setNegativeButton("나중에", null)
+                .show();
+
+        Handler handler = new Handler();
+
+        Runnable checkBiometricRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!isBiometricAvailable(activity)) {
+                    // 생체 인식이 비활성화되었으면 타이머 중단
+                    Log.d(TAG, "생체인식 정책 충족됨, 잠금 타이머 중단");
+                    handler.removeCallbacks(this);
+                } else {
+                    // 생체 인식이 여전히 활성화되어 있으면 경고 메시지 재표시
+                    Log.d(TAG, "생체인식 정책 여전히 미충족, 계속 체크");
+                    handler.postDelayed(this, LOCK_DELAY); // 20초 후에 다시 확인
+                    new AlertDialog.Builder(activity)
+                            .setTitle("보안 경고")
+                            .setMessage("생체 인식 비활성화 정책이 충족되지 않았습니다. '지문'으로 이동한 후, 등록된 지문을 삭제해 주세요.")
+                            .setPositiveButton("지금 설정", (dialog, which) -> {
+                                Intent intent = new Intent(Settings.ACTION_SECURITY_SETTINGS);
+                                activity.startActivity(intent);
+                            })
+                            .setNegativeButton("나중에", null)
+                            .show();
+                }
+            }
+        };
+        handler.postDelayed(checkBiometricRunnable, CHECK_INTERVAL);
+        handler.postDelayed(() -> {
+            if (isBiometricAvailable(activity)) {
                 devicePolicyManager.lockNow();
             }
         }, LOCK_DELAY);
