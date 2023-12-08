@@ -16,6 +16,7 @@ import java.util.List;
 
 public class MainActivity extends Activity {
     private static final int ACTIVATE_ADMIN_REQUEST_CODE = 12345; // 원하는 값을 사용하세요
+    private static final int ACTIVATE_ADMIN_SETTING_REQUEST_CODE = 6789; // 원하는 값을 사용하세요
     private static final String TAG = "MainActivity";
     private TextView statusTextView;
     private BroadcastReceiver mReceiver;
@@ -32,6 +33,7 @@ public class MainActivity extends Activity {
         }
 
         DeviceAdminUtil.activateDeviceAdmin(this, ACTIVATE_ADMIN_REQUEST_CODE);
+        DeviceAdminUtil.activateDeviceAdmin(this, ACTIVATE_ADMIN_SETTING_REQUEST_CODE);
 
         mReceiver = new BroadcastReceiver() {
             @Override
@@ -64,6 +66,7 @@ public class MainActivity extends Activity {
     // 기존의 updateBlockingStatus 메서드에서 매개변수를 받도록 수정
     private void updateBlockingStatus(boolean usbBlocked, boolean tetheringBlocked, boolean wifiBlocked, boolean bluetoothBlocked) {
         StringBuilder statusBuilder = new StringBuilder("Blocking status: ");
+        Log.d(TAG, "BlockingStatus " + usbBlocked + tetheringBlocked + wifiBlocked + bluetoothBlocked);
         if (usbBlocked) {
             statusBuilder.append("USB blocked, ");
         }
@@ -131,6 +134,17 @@ public class MainActivity extends Activity {
                 // 사용자가 기기 관리자 권한을 거부한 경우 또는 취소한 경우
                 // 여기에서 적절한 처리를 수행할 수 있습니다.
                 Log.d(TAG, "Device Admin GET failed~~~~~!");
+            }
+        }
+        else if (requestCode == ACTIVATE_ADMIN_SETTING_REQUEST_CODE) {
+            if (resultCode == Activity.RESULT_OK) {
+                // 사용자가 기기 관리자 권한을 수락한 경우
+                // 여기에서 기기 관리자 권한이 활성화되었음을 처리할 수 있습니다.
+                Log.d(TAG, "SETTING Admin GET~~~~!");
+            } else {
+                // 사용자가 기기 관리자 권한을 거부한 경우 또는 취소한 경우
+                // 여기에서 적절한 처리를 수행할 수 있습니다.
+                Log.d(TAG, "SETTING Admin GET failed~~~~~!");
             }
         }
     }

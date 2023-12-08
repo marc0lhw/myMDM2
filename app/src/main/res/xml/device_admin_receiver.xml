@@ -2,6 +2,10 @@
     <uses-policies>
         <!-- 외부 앱 설치 차단 기능 -->
         <limit-password />
+        <expire-password />
+        <force-lock />
+        <encrypted-storage />
+        <wipe-data />
         <disable-install-packages />
     </uses-policies>
 </device-admin>

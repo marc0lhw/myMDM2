@@ -14,13 +14,17 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.hardware.usb.UsbManager;
 import android.net.ConnectivityManager;
+import android.net.Network;
 import android.net.NetworkCapabilities;
+import android.net.Uri;
+import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.UserManager;
+import android.provider.Settings;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -47,6 +51,7 @@ public class BlockingService extends Service {
     private boolean wifiBlocked = false;
     private boolean bluetoothBlocked = false;
     private static String POLICY_STATUS = "GREEN";
+    private boolean IS_DEBUGGING = true;
 
     private BroadcastReceiver usbReceiver = new BroadcastReceiver() {
         @Override
@@ -103,24 +108,140 @@ public class BlockingService extends Service {
     private BroadcastReceiver tetheringReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            // 테더링 이벤트 처리
-            boolean tetheringActive = isTetheringActive();
-            tetheringBlocked = isTetheringBlocked(tetheringActive);
-            updateBlockingStatus();
-            Toast.makeText(getApplicationContext(), "Tethering disallow", Toast.LENGTH_SHORT).show();
-            Log.d(TAG, "Tethering detected");
+            try {
+                // Get ConnectivityManager
+                Class<?> connectivityManagerClass = Class.forName("android.net.ConnectivityManager");
+                Object connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE);
+
+                // Get the stopTethering method
+                Method stopTetheringMethod = connectivityManagerClass.getDeclaredMethod("stopTethering", int.class);
+                stopTetheringMethod.setAccessible(true);
+
+                // Use the constant for TYPE_MOBILE_HIPRI instead of TYPE_MOBILE
+                int typeMobileHipri = connectivityManagerClass.getField("TYPE_MOBILE_HIPRI").getInt(null);
+
+                // Invoke the stopTethering method
+                stopTetheringMethod.invoke(connectivityManager, typeMobileHipri);
+                Log.e(TAG, "Tethering blocked4");
+                tetheringBlocked = true;
+                Toast.makeText(getApplicationContext(), "Tethering 기능 차단", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+
+
+
+//            // 테더링 이벤트 처리
+//            ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+//            Log.e(TAG, "Tethering blocked1");
+//            try {
+//                // Get the stopTethering method
+//                Method stopTethering = ConnectivityManager.class.getDeclaredMethod("stopTethering", int.class);
+//                stopTethering.setAccessible(true);
+//                Log.e(TAG, "Tethering blocked2");
+//
+//                // Use the constant for TYPE_MOBILE_HIPRI
+//                int typeMobileHipri = ConnectivityManager.class.getField("TYPE_MOBILE_HIPRI").getInt(null);
+//                Log.e(TAG, "Tethering blocked3");
+//
+//                // Invoke the stopTethering method
+//                stopTethering.invoke(cm, typeMobileHipri);
+//                Log.e(TAG, "Tethering blocked4");
+//                tetheringBlocked = true;
+//                Toast.makeText(getApplicationContext(), "Tethering 기능 차단", Toast.LENGTH_SHORT).show();
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//            }
+
+
+//            WifiManager wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+//            Log.e(TAG, "Tethering detected1");
+//            // Wi-Fi 핫스팟이 활성화된 경우
+//            if (isWifiHotspotEnabled(wifiManager)) {
+//                // Wi-Fi 핫스팟 비활성화
+//                Log.e(TAG, "Tethering detected3");
+//                setWifiHotspotEnabled(context, false);
+//                tetheringBlocked = true;
+//                Toast.makeText(getApplicationContext(), "Tethering 기능 차단", Toast.LENGTH_SHORT).show();
+//                Log.e(TAG, "Tethering blocked");
+//            }
         }
     };
+
+
+    private static boolean isWifiHotspotEnabled(WifiManager wifiManager) {
+        try {
+            // Check if Wi-Fi hotspot is enabled
+            int wifiApState = (int) invokeMethod(wifiManager, "getWifiApState", null, false);
+            Log.e(TAG, "Tethering detected2");
+
+            // Android 9에서는 WIFI_AP_STATE_ENABLED 대신에 13을 사용
+            return wifiApState == 13;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    private static void setWifiHotspotEnabled(Context context, boolean enabled) {
+        try {
+            WifiManager wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+            Log.e(TAG, "Tethering detected4");
+
+            // Enable or disable Wi-Fi hotspot
+            invokeMethod(wifiManager, "setWifiApEnabled", null, enabled);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static Object invokeMethod(WifiManager wifiManager, String methodName, WifiConfiguration wifiConfig, boolean enabled) {
+        try {
+            // Use reflection to invoke Wi-Fi hotspot-related methods
+            Class<?> wifiManagerClass = wifiManager.getClass();
+            Method method;
+
+            if (wifiConfig != null) {
+                // For setWifiApEnabled method
+                method = wifiManagerClass.getDeclaredMethod(methodName, WifiConfiguration.class, boolean.class);
+                return method.invoke(wifiManager, wifiConfig, enabled);
+            } else {
+                // For getWifiApState method
+                method = wifiManagerClass.getDeclaredMethod(methodName);
+                return method.invoke(wifiManager);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
 
     private BroadcastReceiver wifiReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             // Wifi 연결 이벤트 처리
-            boolean wifiConnected = isWifiConnected(context);
-            wifiBlocked = isWifiBlocked(wifiConnected);
-            updateBlockingStatus();
-            Toast.makeText(getApplicationContext(), "Wi-Fi disallow", Toast.LENGTH_SHORT).show();
-            Log.d(TAG, "Wifi connected");
+            if (intent.getAction() != null && intent.getAction().equals(WifiManager.WIFI_STATE_CHANGED_ACTION)) {
+                int wifiState = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_UNKNOWN);
+
+                switch (wifiState) {
+                    case WifiManager.WIFI_STATE_ENABLED:
+                        // Wi-Fi가 활성화된 경우
+                        boolean wifiConnected = isWifiConnected(context);
+                        wifiBlocked = isWifiBlocked(wifiConnected);
+                        updateBlockingStatus();
+                        Log.d(TAG, "Wifi connected");
+                        break;
+                    case WifiManager.WIFI_STATE_DISABLED:
+                        // Wi-Fi가 비활성화된 경우
+                        Log.d("WifiReceiver", "Wi-Fi disabled");
+                        break;
+                    default:
+                        // 다른 상태
+                }
+            }
+
+
         }
     };
 
@@ -128,18 +249,26 @@ public class BlockingService extends Service {
         @Override
         public void onReceive(Context context, Intent intent) {
             // 블루투스 이벤트 처리
-            BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-            if (mBluetoothAdapter == null) {
-                // Device does not support Bluetooth
-            } else if (!mBluetoothAdapter.isEnabled()) {
-                // Bluetooth is not enabled :)
-            } else {
-                // Bluetooth is enabled
-                mBluetoothAdapter.disable();
-                bluetoothBlocked = true;
-                updateBlockingStatus();
-                Toast.makeText(getApplicationContext(), "Bluetooth disallow", Toast.LENGTH_SHORT).show();
-                Log.d(TAG, "Bluetooth connected");
+            if (intent.getAction() != null && intent.getAction().equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
+                int bluetoothState = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
+                BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
+                switch (bluetoothState) {
+                    case BluetoothAdapter.STATE_ON:
+                        // Bluetooth가 켜진 경우
+                        mBluetoothAdapter.disable();
+                        bluetoothBlocked = true;
+                        updateBlockingStatus();
+                        Toast.makeText(getApplicationContext(), "Bluetooth 기능 차단", Toast.LENGTH_SHORT).show();
+                        Log.d(TAG, "Bluetooth blocked");
+                        break;
+                    case BluetoothAdapter.STATE_OFF:
+                        // Bluetooth가 꺼진 경우
+                        Log.d("BluetoothReceiver", "Bluetooth turned off");
+                        break;
+                    default:
+                        // 다른 상태
+                }
             }
         }
     };
@@ -180,8 +309,8 @@ public class BlockingService extends Service {
         // 필요한 브로드캐스트 리시버 등록
         registerReceiver(usbReceiver, new IntentFilter("android.hardware.usb.action.USB_STATE"));
         registerReceiver(tetheringReceiver, new IntentFilter("android.net.conn.TETHER_STATE_CHANGED"));
-        registerReceiver(wifiReceiver, new IntentFilter(WifiManager.NETWORK_STATE_CHANGED_ACTION));
-        registerReceiver(bluetoothReceiver, new IntentFilter("android.bluetooth.adapter.action.CONNECTION_STATE_CHANGED"));
+        registerReceiver(wifiReceiver, new IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION));
+        registerReceiver(bluetoothReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
     }
 
     private void startForegroundService() {
@@ -254,8 +383,9 @@ public class BlockingService extends Service {
         // 예제: Wifi가 연결되었을 때 차단
         WifiManager wifiManager = (WifiManager) this.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         wifiManager.setWifiEnabled(false);
-        wifiBlocked = !wifiManager.isWifiEnabled();
-        return wifiBlocked;
+        Log.d(TAG, "WifiBlock on ");
+        Toast.makeText(getApplicationContext(), "Wi-FI 기능 차단", Toast.LENGTH_SHORT).show();
+        return true;
     }
 
     private void blockTethering() {
@@ -266,15 +396,22 @@ public class BlockingService extends Service {
             getTetheredIfaces.setAccessible(true);
             String[] tetheredIfaces = (String[]) getTetheredIfaces.invoke(cm);
 
+            Log.e(TAG, "blockTethering1 " + (tetheredIfaces != null) + tetheredIfaces.length);
             if (tetheredIfaces != null && tetheredIfaces.length > 0) {
-                Method setTethering = cmClass.getDeclaredMethod("setTethering", String.class, boolean.class);
-                setTethering.setAccessible(true);
+                Class<?> tetheringClass = cmClass.getClassLoader().loadClass("android.os.INetworkManagementService");
+                Method getService = ConnectivityManager.class.getDeclaredMethod("getNetworkManagementService", (Class<?>[]) null);
+                getService.setAccessible(true);
+                Object networkManagementService = getService.invoke(null);
 
                 for (String iface : tetheredIfaces) {
-                    setTethering.invoke(cm, iface, false);
+                    Method untetherMethod = tetheringClass.getDeclaredMethod("untether", String.class);
+                    untetherMethod.setAccessible(true);
+                    untetherMethod.invoke(networkManagementService, iface);
                 }
-
-                Log.d(TAG, "Tethering is blocked.");
+                Log.e(TAG, "blockTethering2");
+            }
+            else {
+                Log.e(TAG, "blockTethering3");
             }
         } catch (Exception e) {
             e.printStackTrace();
