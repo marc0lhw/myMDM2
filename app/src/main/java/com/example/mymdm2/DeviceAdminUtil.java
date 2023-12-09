@@ -7,7 +7,10 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.UserManager;
 import android.provider.Settings;
@@ -21,6 +24,40 @@ public class DeviceAdminUtil {
     private static final String TAG = "DeviceAdminUtil";
     private static final long CHECK_INTERVAL = 15000; // 15초 간격으로 체크
     private static final long LOCK_DELAY = 30000; // 30초 후 잠금
+
+    private static final String[] WHITELISTED_APPS = {
+            "com.nhn.android.search",       // Naver
+            "com.kakao.talk",               // Kakaotalk
+            "net.daum.android.daum",        // Daum
+            "viva.republica.toss",          // Toss
+            "com.google.android.youtube",    // Youtube
+
+            "com.example.mymdm2"
+    };
+    public static void setAppRestrictions(Context context, ComponentName adminComponent) {
+        DevicePolicyManager devicePolicyManager = (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
+        PackageManager packageManager = context.getPackageManager();
+
+        try {
+            for (PackageInfo packageInfo : packageManager.getInstalledPackages(0)) {
+                boolean isWhitelisted = false;
+                for (String whitelistedApp : WHITELISTED_APPS) {
+                    if (packageInfo.packageName.equals(whitelistedApp)) {
+                        isWhitelisted = true;
+                        break;
+                    }
+                }
+
+                if (!isWhitelisted) {
+                    // 화이트리스트에 없는 앱을 숨깁니다.
+                    devicePolicyManager.setApplicationHidden(adminComponent, packageInfo.packageName, true);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 
     // 장치 관리자 권한을 활성화하기 위한 메서드
     public static void activateDeviceAdmin(Activity activity, int requestCode) {
@@ -61,7 +98,13 @@ public class DeviceAdminUtil {
         Log.d(TAG, "setInstallBlockPolicy1");
         if (devicePolicyManager.isAdminActive(componentName)) {
             Log.d(TAG, "setInstallBlockPolicy2");
-            devicePolicyManager.addUserRestriction(componentName, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES);
+            // 현재 설정된 사용자 제한을 가져옵니다.
+            Bundle restrictions = devicePolicyManager.getUserRestrictions(componentName);
+            // DISALLOW_INSTALL_UNKNOWN_SOURCES 제한이 이미 설정되었는지 확인합니다.
+            if (!restrictions.getBoolean(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES, false)) {
+                // 제한이 설정되지 않았다면, 제한을 추가합니다.
+                devicePolicyManager.addUserRestriction(componentName, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES);
+            }
             Log.d(TAG, "Install from unknown sources blocked: " + blockInstall);
         } else {
             Log.e(TAG, "Device admin not active. Cannot set policy.");

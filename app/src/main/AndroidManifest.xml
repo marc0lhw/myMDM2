@@ -15,7 +15,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
-
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- 다음은 필요한 권한을 추가할 것입니다. -->
 
     <application>

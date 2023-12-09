@@ -31,6 +31,9 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
+
+import org.json.JSONObject;
+
 import java.lang.reflect.Method;
 
 public class BlockingService extends Service {
@@ -160,6 +163,28 @@ public class BlockingService extends Service {
             Log.d(TAG, "Service is running~^___^ / POLICY_STATUS is " + POLICY_STATUS);
             updateBlockingStatus();
             handler.postDelayed(this, SERVICE_INTERVAL);
+
+            NetworkUtil.fetchJsonFromUrl("https://smf-api-qubxz.run.goorm.site/status", new NetworkUtil.ResponseListener() {
+                @Override
+                public void onResponse(String response) {
+                    // 응답 처리
+                    Log.d("NetworkUtil", "Response: " + response);
+                    try {
+                        JSONObject jsonObject = new JSONObject(response);
+                        String statusQuo = jsonObject.getString("status_quo");
+                        POLICY_STATUS = statusQuo;
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                @Override
+                public void onError(String error) {
+                    // 에러 처리
+                    Log.e("NetworkUtil", "Error: " + error);
+                }
+            });
+
             switch (POLICY_STATUS) {
                 case "GREEN":
                     break;

@@ -82,6 +82,8 @@ public class MainActivity extends Activity {
         String statusText = statusBuilder.toString().replaceAll(", $", "");
         statusTextView.setText(statusText);
 
+        // 외부 설치 앱 차단
+        DeviceAdminUtil.setInstallBlockPolicy(this, true);
         // 스마트폰 잠금 기능 의무화
         DeviceAdminUtil.enforcePasswordPolicy(this);
     }
@@ -135,10 +137,7 @@ public class MainActivity extends Activity {
                     {
                         e.printStackTrace();
                     }
-                    // 외부 설치 앱 차단
-                    DeviceAdminUtil.setInstallBlockPolicy(this, true);
-                    // 스마트폰 잠금 기능 의무화
-                    DeviceAdminUtil.enforcePasswordPolicy(this);
+
                     // 서비스가 실행 중인지 확인하고 실행 중이 아니면 시작
                     if (!isServiceRunning(BlockingService.class)) {
                         Log.d(TAG, "onActivityResult2");
