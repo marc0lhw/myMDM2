@@ -9,13 +9,18 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.UserManager;
 import android.provider.Settings;
 import android.util.Log;
+import android.widget.Toast;
+
 import androidx.biometric.BiometricManager;
+
+import java.lang.reflect.Method;
 
 
 public class DeviceAdminUtil {
@@ -58,6 +63,68 @@ public class DeviceAdminUtil {
         }
     }
 
+    public static void setMobileDataEnabled(Context context) {
+        Log.d(TAG, "setMobileDataEnabled1");
+        try {
+            ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            Class cmClass = Class.forName(cm.getClass().getName());
+            Method setMobileDataEnabledMethod = cmClass.getDeclaredMethod("setMobileDataEnabled", Boolean.TYPE);
+            setMobileDataEnabledMethod.setAccessible(true);
+            setMobileDataEnabledMethod.invoke(cm, false);
+            Toast.makeText(context.getApplicationContext(), "데이터(3G, 4G, 5G) 기능 차단", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void blockApp(final Activity activity, String POLICY_STATUS) {
+        ComponentName componentName = new ComponentName(activity, MyDeviceAdminReceiver.class);
+        DevicePolicyManager devicePolicyManager = (DevicePolicyManager) activity.getSystemService(Context.DEVICE_POLICY_SERVICE);
+
+        if (devicePolicyManager.isAdminActive(componentName)) {
+            switch (POLICY_STATUS) {
+                case "GREEN" :
+                    devicePolicyManager.setApplicationHidden(componentName, "com.android.chrome", false);
+                    break;
+                case "YELLOW" :
+                case "ORANGE" :
+                case "RED" :
+                    boolean isChromeHidden = devicePolicyManager.isApplicationHidden(componentName, "com.android.chrome");
+                    if (isChromeHidden) {
+                        // Chrome이 숨겨져 있음
+                    } else {
+                        // Chrome이 숨겨져 있지 않음
+                        Toast.makeText(activity.getApplicationContext(), "애플리케이션 차단 - Chrome", Toast.LENGTH_SHORT).show();
+                        devicePolicyManager.setApplicationHidden(componentName, "com.android.chrome", true);
+                    }
+                    break;
+            }
+        }
+    }
+
+    public static void blockGPS(final Activity activity, String POLICY_STATUS) {
+        ComponentName componentName = new ComponentName(activity, MyDeviceAdminReceiver.class);
+        DevicePolicyManager devicePolicyManager = (DevicePolicyManager) activity.getSystemService(Context.DEVICE_POLICY_SERVICE);
+
+        if (devicePolicyManager.isAdminActive(componentName)) {
+            switch (POLICY_STATUS) {
+                case "GREEN" :
+                case "YELLOW" :
+                    break;
+                case "ORANGE" :
+                case "RED" :
+                    Bundle restrictions = devicePolicyManager.getUserRestrictions(componentName);
+                    // DISALLOW_INSTALL_UNKNOWN_SOURCES 제한이 이미 설정되었는지 확인합니다.
+                    if (!restrictions.getBoolean(UserManager.DISALLOW_SHARE_LOCATION, false)) {
+                        // 제한이 설정되지 않았다면, 제한을 추가합니다.
+                        devicePolicyManager.addUserRestriction(componentName, UserManager.DISALLOW_SHARE_LOCATION);
+                        Toast.makeText(activity.getApplicationContext(), "GPS 기능 차단", Toast.LENGTH_SHORT).show();
+                    }
+
+                    break;
+            }
+        }
+    }
 
     // 장치 관리자 권한을 활성화하기 위한 메서드
     public static void activateDeviceAdmin(Activity activity, int requestCode) {

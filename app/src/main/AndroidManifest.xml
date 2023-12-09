@@ -18,14 +18,18 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- 다음은 필요한 권한을 추가할 것입니다. -->
 
-    <application>
+    <application
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round">
         <!-- 서비스 등록 -->
         <service
             android:name=".BlockingService"
             android:process=":remote"
+            android:label="@string/app_name"
             android:permission="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED"
             android:enabled="true"
-            android:exported="false" />
+            android:exported="false"/>
 
         <!-- 부팅 시 자동 실행 리시버 등록 -->
         <receiver
@@ -40,7 +44,7 @@
         </receiver>
         <receiver
             android:name=".MyDeviceAdminReceiver"
-            android:label="DeviceAdminReceiver"
+            android:label="@string/app_name"
             android:permission="android.permission.BIND_DEVICE_ADMIN">
             <meta-data
                 android:name="android.app.device_admin"

@@ -12,7 +12,9 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Color;
 import android.hardware.usb.UsbManager;
+import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -27,6 +29,7 @@ import android.os.SystemClock;
 import android.os.UserManager;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.View;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -55,6 +58,7 @@ public class BlockingService extends Service {
     public static final String EXTRA_TETHERING_BLOCKED = "extraTetheringBlocked";
     public static final String EXTRA_WIFI_BLOCKED = "extraWifiBlocked";
     public static final String EXTRA_BLUETOOTH_BLOCKED = "extraBluetoothBlocked";
+    public static final String EXTRA_POLICY_STATUS = "POLICY_STATUS";
 
     // 초기 상태는 차단되지 않음
     private boolean usbBlocked = false;
@@ -63,6 +67,27 @@ public class BlockingService extends Service {
     private boolean bluetoothBlocked = false;
     private static String POLICY_STATUS = "GREEN";
     private boolean IS_DEBUGGING = true;
+
+    private BroadcastReceiver gpsReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // gps 연결 이벤트 처리
+            if (intent.getAction().matches(LocationManager.PROVIDERS_CHANGED_ACTION)) {
+                LocationManager locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+                boolean isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+
+                if (isGpsEnabled) {
+                    // GPS가 켜짐
+                    // 여기에 GPS 차단 로직 추가
+                    boolean wifiConnected = isWifiConnected(context);
+                    wifiBlocked = isWifiBlocked(wifiConnected);
+
+                    Log.d(TAG, "Wifi connected");
+
+                }
+            }
+        }
+    };
 
     private BroadcastReceiver tetheringReceiver = new BroadcastReceiver() {
         @Override
@@ -113,8 +138,6 @@ public class BlockingService extends Service {
                         // 다른 상태
                 }
             }
-
-
         }
     };
 
@@ -261,8 +284,8 @@ public class BlockingService extends Service {
         manager.createNotificationChannel(channel);
 
         Notification notification = new NotificationCompat.Builder(this, channelId)
-                .setContentTitle("Blocking Service")
-                .setContentText("Service is running in the background")
+                .setContentTitle("기능 통제 정책")
+                .setContentText("서비스가 백그라운드에서 실행 중입니다.")
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .build();
 
@@ -277,6 +300,7 @@ public class BlockingService extends Service {
         intent.putExtra(EXTRA_TETHERING_BLOCKED, tetheringBlocked);
         intent.putExtra(EXTRA_WIFI_BLOCKED, wifiBlocked);
         intent.putExtra(EXTRA_BLUETOOTH_BLOCKED, bluetoothBlocked);
+        intent.putExtra(EXTRA_POLICY_STATUS, POLICY_STATUS);
         sendBroadcast(intent);
     }
 
@@ -372,6 +396,7 @@ public class BlockingService extends Service {
             workerThread.interrupt();
         }
     }
+
 
     @Nullable
     @Override
