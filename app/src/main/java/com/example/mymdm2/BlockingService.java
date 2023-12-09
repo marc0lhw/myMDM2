@@ -23,6 +23,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.os.UserManager;
 import android.provider.Settings;
 import android.util.Log;
@@ -37,6 +38,13 @@ public class BlockingService extends Service {
     private static final String TAG = "BlockingService";
     private static final long SERVICE_INTERVAL = 2000; // 2 seconds
     private Handler handler;
+
+    //원격 잠금해제
+    private static final long MAX_UNLOCK_INTERVAL = 3 * 24 * 60 * 60 * 1000L; // 3일 (단위: 밀리초)
+    private long lastUnlockTime;
+    private DevicePolicyManager devicePolicyManager;
+    private ComponentName adminComponent;
+    private Thread workerThread;
 
     // 브로드캐스트 액션
     public static final String ACTION_BLOCKING_STATUS = "com.example.mymdm2.BLOCKING_STATUS";
@@ -135,6 +143,16 @@ public class BlockingService extends Service {
         }
     };
 
+    private BroadcastReceiver userPresentReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (Intent.ACTION_USER_PRESENT.equals(intent.getAction())) {
+                Log.d(TAG, "userPresentReceiver on");
+                updateLastUnlockTime();
+            }
+        }
+    };
+
     private Runnable serviceRunnable = new Runnable() {
         @Override
         public void run() {
@@ -165,6 +183,36 @@ public class BlockingService extends Service {
         // 설치 차단 기능 활성화
         Log.d(TAG, "Service created 2");
         handler.postDelayed(serviceRunnable, SERVICE_INTERVAL);
+
+        //원격 잠금 해제
+        devicePolicyManager = (DevicePolicyManager) getSystemService(DEVICE_POLICY_SERVICE);
+        adminComponent = new ComponentName(this, MyDeviceAdminReceiver.class);
+        // 마지막 잠금 해제 시간 초기화
+        lastUnlockTime = System.currentTimeMillis();
+        // 백그라운드 작업 시작
+        workerThread = new Thread(this::checkDeviceUnlockStatus);
+        workerThread.start();
+    }
+
+    private void checkDeviceUnlockStatus() {
+        while (!Thread.interrupted()) {
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - lastUnlockTime > MAX_UNLOCK_INTERVAL) {
+                if (devicePolicyManager.isAdminActive(adminComponent)) {
+                    Log.d(TAG, "Device not unlocked for 3 days, initiating wipe");
+                    devicePolicyManager.wipeData(0); // 디바이스 초기화
+                }
+                break;
+            }
+            SystemClock.sleep(60000); // 1분 간격으로 체크
+            Log.e(TAG, "checkDeviceUnlockStatus - " + (currentTime - lastUnlockTime));
+        }
+    }
+
+    // 잠금 해제 시간 갱신 메소드
+    public void updateLastUnlockTime() {
+        lastUnlockTime = System.currentTimeMillis();
+        Log.d(TAG, "updateLastUnlockTime - " + lastUnlockTime);
     }
 
     private void registerReceivers() {
@@ -173,6 +221,8 @@ public class BlockingService extends Service {
 //        registerReceiver(tetheringReceiver, new IntentFilter("android.net.conn.TETHER_STATE_CHANGED"));
         registerReceiver(wifiReceiver, new IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION));
         registerReceiver(bluetoothReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
+        registerReceiver(userPresentReceiver, new IntentFilter(Intent.ACTION_USER_PRESENT));
+
     }
 
     private void startForegroundService() {
@@ -289,7 +339,13 @@ public class BlockingService extends Service {
 //        unregisterReceiver(tetheringReceiver);
         unregisterReceiver(wifiReceiver);
         unregisterReceiver(bluetoothReceiver);
+        unregisterReceiver(userPresentReceiver);
         handler.removeCallbacks(serviceRunnable);
+
+        //원격잠금해제
+        if (workerThread != null && workerThread.isAlive()) {
+            workerThread.interrupt();
+        }
     }
 
     @Nullable

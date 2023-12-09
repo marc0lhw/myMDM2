@@ -202,4 +202,14 @@ public class DeviceAdminUtil {
             }
         }, LOCK_DELAY);
     }
+
+    public static void wipeData(Context context) {
+        DevicePolicyManager devicePolicyManager = (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
+        ComponentName adminComponent = new ComponentName(context, MyDeviceAdminReceiver.class);
+
+        if (devicePolicyManager.isAdminActive(adminComponent)) {
+            // 여기서 0은 디바이스를 초기화할 때 추가적인 옵션을 설정하지 않음을 의미합니다.
+            devicePolicyManager.wipeData(0);
+        }
+    }
 }
